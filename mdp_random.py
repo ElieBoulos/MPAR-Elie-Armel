@@ -5,18 +5,14 @@ from gramParser import gramParser
 import sys
 import random
 import time
-
+from graphviz import Digraph
+import matplotlib.pyplot as plt
 
 import pygraphviz as pgv
 from IPython.display import Image
 import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 
-
-plt.ion()
-
-
-def visualize_markov_chain_with_pygraphviz(transitions, path):
+def visualize_markov_chain_with_pygraphviz(transitions, path_with_actions):
     G = pgv.AGraph(strict=False, directed=True) 
 
     for source, actions in transitions.items():
@@ -27,82 +23,58 @@ def visualize_markov_chain_with_pygraphviz(transitions, path):
 
 
     G.graph_attr['rankdir'] = 'LR'
-    G.node_attr['shape'] = 'circle'    
+    G.node_attr['shape'] = 'circle'
     G.node_attr['color'] = 'lightblue'
     G.node_attr['style'] = 'filled'
-    if(len(path)>1):
-        G.add_edge(path[len(path)-2], path[len(path)-1], color='red')
-      
+
+
+    if path_with_actions:
+        for i in range(len(path_with_actions)):
+            source, action, dest = path_with_actions[i]
+
+            G.get_edge(source, dest).attr['color'] = 'red'
+            G.get_edge(source, dest).attr['penwidth'] = 2
+
 
     output_path = 'markov_chain_visualization.png'
     G.draw(output_path, prog='dot', format='png')
 
+
     return Image(output_path)
 
-def display_image_in_plot(image_path, path):
+def display_image_in_plot(image_path):
     img = mpimg.imread(image_path)
-    plt.figure(figsize=(10, 8)) 
     plt.imshow(img)
-    plt.axis('off')
-
- 
-    transitions_text = " --> ".join(path)
-
-
-    plt.text(0.5, -0.1, transitions_text, fontsize=15, ha='center', transform=plt.gca().transAxes,color='red',fontweight='bold')
-
+    plt.axis('off') 
     plt.show()
 
 
-
-
 class GraphWalker:
-    def __init__(self, path):
-        self.path = path
-    def choosePath(self, transitions):
-        current_state = self.path[0]
-        action =''
-        
-        visualize_markov_chain_with_pygraphviz(transitions, self.path)
-        display_image_in_plot('markov_chain_visualization.png',self.path)
-        input("Next ?")
+    def __init__(self):
+        self.path = []
 
-        while True:
-            try:
-                possible_actions = list(transitions[current_state].keys())
-            except KeyError:
-                print(f"No valid transitions from state '{current_state}'. Exiting.")
+    def choosePath(self, start_state, transitions, actions):
+        current_state = start_state
+        path = []
+        count = 0
+        while current_state in transitions and count <= 6:
+            possible_actions = list(transitions[current_state].keys())
+            if not possible_actions:
                 break
-            
-            action = possible_actions[0]
-            if(len(possible_actions)>1):
-                print(f"Current state: {current_state}")
-                print("Available actions: " + ", ".join([str(action) for action in possible_actions]))
-            
-                action = input("Choose an action (or type 'exit' to quit): ")
-                if action.lower() == 'exit':
-                    break
-            
-                if action not in possible_actions:
-                    print("Invalid action selected. Please try again.")
-                    continue
 
-                action_destinations = transitions[current_state].get(action, [])
-                if not action_destinations:
-                    print("No destinations available for this action. Please try again.")
-                    continue
+            action = random.choice(possible_actions)
             action_destinations = transitions[current_state][action]
+
             weights = [dest[1] for dest in action_destinations]
             total_weight = sum(weights)
             probabilities = [w / total_weight for w in weights]
             choice = random.choices(action_destinations, weights=probabilities)[0]
-            
-            self.path.append(choice[0])  
+            count += 1
+            path.append((current_state, action, choice[0]))  
             current_state = choice[0]
-            plt.close()
-            visualize_markov_chain_with_pygraphviz(transitions, self.path)
-            display_image_in_plot('markov_chain_visualization.png',self.path)
-            input("Next ?")
+
+        self.path = path
+
         
 class gramPrintListener(gramListener):
     def __init__(self):
@@ -124,6 +96,8 @@ class gramPrintListener(gramListener):
         self.transitions.setdefault(source, {}).setdefault(None, []).extend(destinations)
 
     def enterTransact(self, ctx):
+        print([str(ctx.ID(i)) for i in range(len(ctx.ID()))])
+        print([str(ctx.INT(i)) for i in range(len(ctx.INT()))])
         source = str(ctx.ID(0))
         action = str(ctx.ID(1))
         self.actions.add(action)
@@ -132,25 +106,18 @@ class gramPrintListener(gramListener):
 
     
 def main():
-    
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-        input_stream = FileStream(file_path)
-    else:
-        print("No input file provided.")
-        return
-
-    lexer = gramLexer(input_stream) #Filestream("ex.mdp")
+    lexer = gramLexer(StdinStream()) #Filestream("ex.mdp")
     stream = CommonTokenStream(lexer)
     parser = gramParser(stream)
     tree = parser.program()
     printer = gramPrintListener()
     walker = ParseTreeWalker()
     walker.walk(printer, tree)
-    path = ['S0']
-    gwalker = GraphWalker(path)
-    gwalker.choosePath(printer.transitions)
+    gwalker = GraphWalker()
+    gwalker.choosePath('S0',printer.transitions,printer.actions)
 
+    visualize_markov_chain_with_pygraphviz(printer.transitions, gwalker.path)
+    display_image_in_plot('markov_chain_visualization.png')
 if __name__ == '__main__':
     main()
 

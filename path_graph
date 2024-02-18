@@ -1,9 +1,0 @@
-// Selected Path
-digraph {
-	S0 [label=S0]
-	S2 [label=S2]
-	S0 -> S2
-	S2 [label=S2]
-	S6 [label=S6]
-	S2 -> S6
-}
