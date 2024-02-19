@@ -6,7 +6,6 @@ import sys
 import random
 import time
 
-
 import pygraphviz as pgv
 from IPython.display import Image
 import matplotlib.image as mpimg
@@ -14,8 +13,6 @@ import matplotlib.pyplot as plt
 
 
 plt.ion()
-
-
 def visualize_markov_chain_with_pygraphviz(transitions, path):
     G = pgv.AGraph(strict=False, directed=True) 
 
@@ -41,16 +38,16 @@ def visualize_markov_chain_with_pygraphviz(transitions, path):
 
 def display_image_in_plot(image_path, path):
     img = mpimg.imread(image_path)
-    plt.figure(figsize=(10, 8)) 
+    plt.figure(figsize=(7, 5)) 
     plt.imshow(img)
     plt.axis('off')
 
- 
     transitions_text = " --> ".join(path)
+    current_state = path[-1]
 
-
-    plt.text(0.5, -0.1, transitions_text, fontsize=15, ha='center', transform=plt.gca().transAxes,color='red',fontweight='bold')
-
+    plt.text(0.5, -0.1, transitions_text, fontsize=15, ha='center', transform=plt.gca().transAxes, color='red', fontweight='bold')
+    plt.text(0.5, -0.2, f"Current State: {current_state}", fontsize=12, ha='center', transform=plt.gca().transAxes, color='blue', fontweight='bold')
+    
     plt.show()
 
 
@@ -65,7 +62,7 @@ class GraphWalker:
         
         visualize_markov_chain_with_pygraphviz(transitions, self.path)
         display_image_in_plot('markov_chain_visualization.png',self.path)
-        input("Next ?")
+        
 
         while True:
             try:
@@ -73,6 +70,12 @@ class GraphWalker:
             except KeyError:
                 print(f"No valid transitions from state '{current_state}'. Exiting.")
                 break
+            
+            if(len(possible_actions)== 1):
+                a = input("Next ? (or type 'exit' to quit): ")
+                if a.lower() == 'exit':
+                    break
+
             
             action = possible_actions[0]
             if(len(possible_actions)>1):
@@ -102,7 +105,7 @@ class GraphWalker:
             plt.close()
             visualize_markov_chain_with_pygraphviz(transitions, self.path)
             display_image_in_plot('markov_chain_visualization.png',self.path)
-            input("Next ?")
+            
         
 class gramPrintListener(gramListener):
     def __init__(self):
