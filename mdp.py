@@ -5,14 +5,19 @@ from gramParser import gramParser
 import sys
 import random
 import time
-
 import pygraphviz as pgv
 from IPython.display import Image
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import messagebox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from PIL import Image as img
+from PIL import ImageTk as imgtk 
 
 
-plt.ion()
+
+
 def visualize_markov_chain_with_pygraphviz(transitions, path):
     G = pgv.AGraph(strict=False, directed=True) 
 
@@ -36,75 +41,120 @@ def visualize_markov_chain_with_pygraphviz(transitions, path):
 
     return Image(output_path)
 
-def display_image_in_plot(image_path, path):
-    img = mpimg.imread(image_path)
-    plt.figure(figsize=(7, 5)) 
-    plt.imshow(img)
-    plt.axis('off')
 
-    transitions_text = " --> ".join(path)
-    current_state = path[-1]
+def select_initial_state(states):
+    button_style = {
+            'background': 'lightblue',
+            'foreground': 'black',
+            'font': ('Helvetica', 15),
+            'borderwidth': 5,
+            'relief': 'raised',
+            'padx': 10,
+            'pady': 5
+        }
+    root = tk.Tk()
+    root.title("Select Initial State")
+    root.geometry("200x100")
 
-    plt.text(0.5, -0.1, transitions_text, fontsize=15, ha='center', transform=plt.gca().transAxes, color='red', fontweight='bold')
-    plt.text(0.5, -0.2, f"Current State: {current_state}", fontsize=12, ha='center', transform=plt.gca().transAxes, color='blue', fontweight='bold')
-    
-    plt.show()
+    selected_state = tk.StringVar(root)
+    selected_state.set(states[0])  
+
+    tk.Label(root, text=f"Select initial state :").pack()
+
+    tk.OptionMenu(root, selected_state, *states).pack()
+
+    def on_submit():
+        global initial_state
+        initial_state = selected_state.get()
+        root.destroy()
+
+    submit_button = tk.Button(root, text="Submit", command=on_submit,**button_style)
+    submit_button.pack()
+
+    root.mainloop()
+
+    return initial_state
+
+
 
 
 
 
 class GraphWalker:
-    def __init__(self, path):
+
+            
+    def __init__(self, path, transitions):
         self.path = path
-    def choosePath(self, transitions):
-        current_state = self.path[0]
-        action =''
+        self.transitions = transitions
+        self.window = None
+        self.initiate_path()
         
-        visualize_markov_chain_with_pygraphviz(transitions, self.path)
-        display_image_in_plot('markov_chain_visualization.png',self.path)
+    
+    def display_plot(self, image_path):
+        image = img.open(image_path)
+        photo = imgtk.PhotoImage(image)
+
+        
+        plot_label = tk.Label(self.window, image=photo)
+        plot_label.image = photo 
+        plot_label.pack()
+
+
+    def create_window(self):
+        button_style = {
+            'background': 'lightblue',
+            'foreground': 'black',
+            'font': ('Helvetica', 15),
+            'borderwidth': 5,
+            'relief': 'raised',
+            'padx': 10,
+            'pady': 5
+        }
+
+
+
+        if self.window:
+            self.window.destroy() 
+        
+        self.window = tk.Tk()  
+        self.window.title("Markov Chain Walker")
         
 
-        while True:
-            try:
-                possible_actions = list(transitions[current_state].keys())
-            except KeyError:
-                print(f"No valid transitions from state '{current_state}'. Exiting.")
-                break
-            
-            if(len(possible_actions)== 1):
-                a = input("Next ? (or type 'exit' to quit): ")
-                if a.lower() == 'exit':
-                    break
+        
+        self.display_plot('markov_chain_visualization.png')
 
-            
-            action = possible_actions[0]
-            if(len(possible_actions)>1):
-                print(f"Current state: {current_state}")
-                print("Available actions: " + ", ".join([str(action) for action in possible_actions]))
-            
-                action = input("Choose an action (or type 'exit' to quit): ")
-                if action.lower() == 'exit':
-                    break
-            
-                if action not in possible_actions:
-                    print("Invalid action selected. Please try again.")
-                    continue
+        path_str = " -> ".join(self.path)
+        tk.Label(self.window, text=f"Path: {path_str}", font=('Helvetica', 12), wraplength=400).pack()
+        tk.Label(self.window, text=f"Current state: {self.current_state}").pack()
 
-                action_destinations = transitions[current_state].get(action, [])
-                if not action_destinations:
-                    print("No destinations available for this action. Please try again.")
-                    continue
-            action_destinations = transitions[current_state][action]
-            weights = [dest[1] for dest in action_destinations]
-            total_weight = sum(weights)
-            probabilities = [w / total_weight for w in weights]
-            choice = random.choices(action_destinations, weights=probabilities)[0]
-            
-            self.path.append(choice[0])  
-            current_state = choice[0]
-            plt.close()
-            visualize_markov_chain_with_pygraphviz(transitions, self.path)
-            display_image_in_plot('markov_chain_visualization.png',self.path)
+        for action in self.possible_actions:
+            action_text = "Next" if action is None else action
+            action_button = tk.Button(self.window, text=action_text, command=lambda a=action: self.choose_action(a),**button_style)
+            action_button.pack()
+
+        self.window.mainloop() 
+
+    def choose_action(self, action):
+
+        current_state = self.path[-1]
+        action_destinations = self.transitions[current_state][action]
+        weights = [dest[1] for dest in action_destinations]
+        total_weight = sum(weights)
+        probabilities = [w / total_weight for w in weights]
+        choice = random.choices(action_destinations, weights=probabilities)[0]
+        
+        self.path.append(choice[0])
+        self.initiate_path()
+    
+    def initiate_path(self):    
+        visualize_markov_chain_with_pygraphviz(self.transitions, self.path)
+        self.current_state = self.path[-1]
+        try:
+            self.possible_actions = list(self.transitions[self.current_state].keys())
+        except KeyError:
+            messagebox.showinfo("End", f"Current State : {self.current_state}, No valid transitions from the current state. Exiting.")
+            return
+        self.create_window()
             
         
 class gramPrintListener(gramListener):
@@ -114,6 +164,7 @@ class gramPrintListener(gramListener):
 
     def enterDefstates(self, ctx):
         self.current_state = str(ctx.ID(0))
+        self.states = [str(x) for x in ctx.ID()]
         print("States: %s" % str([str(x) for x in ctx.ID()]))
 
     def enterDefactions(self, ctx):
@@ -150,10 +201,15 @@ def main():
     printer = gramPrintListener()
     walker = ParseTreeWalker()
     walker.walk(printer, tree)
-    path = ['S0']
-    gwalker = GraphWalker(path)
-    gwalker.choosePath(printer.transitions)
+    
+    initial_state = select_initial_state(printer.states)
+    print(f"Selected initial state: {initial_state}")
+
+    gwalker = GraphWalker([initial_state], printer.transitions)
+    
+    
 
 if __name__ == '__main__':
     main()
+    
 
