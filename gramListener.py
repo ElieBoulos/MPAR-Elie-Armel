@@ -44,6 +44,15 @@ class gramListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by gramParser#defstate.
+    def enterDefstate(self, ctx:gramParser.DefstateContext):
+        pass
+
+    # Exit a parse tree produced by gramParser#defstate.
+    def exitDefstate(self, ctx:gramParser.DefstateContext):
+        pass
+
+
     # Enter a parse tree produced by gramParser#trans.
     def enterTrans(self, ctx:gramParser.TransContext):
         pass

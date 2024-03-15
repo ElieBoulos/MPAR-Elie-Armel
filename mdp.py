@@ -45,6 +45,60 @@ def simulate_markov_chain(transitions, initial_state, target_states, steps, simu
 
     return successful_simulations / simulations
 
+
+def simulate_expected_reward(transitions, recomp, initial_state, steps, simulations=10000):
+    total_reward = 0
+    
+    for _ in range(simulations):
+        current_state = initial_state
+        path_reward = 0 
+        
+        for _ in range(steps):
+            path_reward += recomp.get(current_state, 0) 
+            
+            if current_state not in transitions or not transitions[current_state]:
+                break  
+            
+            actions = transitions[current_state].get(None, [])
+            if not actions:
+                break 
+            
+            next_states, probabilities = zip(*actions)
+            current_state = random.choices(next_states, weights=probabilities)[0] 
+        
+        total_reward += path_reward 
+    
+    expected_reward = total_reward / simulations  
+    return expected_reward
+
+def sprt_markov_chain(transitions, initial_state, target_states, steps,theta, epsilon, alpha=0.05, beta=0.05):
+    # H0: p >= gamma_0 ,  H1: p < gamma_1
+    A = ((1 - beta) / alpha)
+    B = (beta / (1 - alpha))
+    gamma_1 = theta - epsilon
+    gamma_0 = theta + epsilon
+
+    Rm = 1
+    m = 0
+    dm = 0
+    while True:
+        m += 1
+
+        reached = simulate_markov_chain(transitions, initial_state, target_states, steps,simulations=1)
+        
+        if reached :
+            dm += 1
+            Rm *= ((gamma_1)**dm)/((gamma_0)**dm)
+        else:
+            Rm *= ((1-gamma_1)**(m-dm))/((1-gamma_0)**(m-dm))
+
+        if Rm >= A:
+            return "Accept H1", m
+        elif Rm <= B:
+            return "Accept H0", m
+        
+        
+
 def visualize_markov_chain_with_pygraphviz(transitions, path):
     G = pgv.AGraph(strict=False, directed=True) 
 
@@ -71,45 +125,45 @@ def visualize_markov_chain_with_pygraphviz(transitions, path):
     return Image(output_path)
 
 
-def select_initial_state(transitions,states):
-    button_style = {
-            'background': 'lightblue',
-            'foreground': 'black',
-            'font': ('Helvetica', 15),
-            'borderwidth': 5,
-            'relief': 'raised',
-            'padx': 10,
-            'pady': 5
-        }
-    root = tk.Tk()
-    root.title("Select Initial State")
+# def select_initial_state(transitions,states):
+#     button_style = {
+#             'background': 'lightblue',
+#             'foreground': 'black',
+#             'font': ('Helvetica', 15),
+#             'borderwidth': 5,
+#             'relief': 'raised',
+#             'padx': 10,
+#             'pady': 5
+#         }
+#     root = tk.Tk()
+#     root.title("Select Initial State")
     
     
-    visualize_markov_chain_with_pygraphviz(transitions, [])
-    image = img.open('markov_chain_visualization.png')
-    photo = imgtk.PhotoImage(image)
-    image_label = tk.Label(root, image=photo)
-    image_label.image = photo
-    image_label.pack()
+#     visualize_markov_chain_with_pygraphviz(transitions, [])
+#     image = img.open('markov_chain_visualization.png')
+#     photo = imgtk.PhotoImage(image)
+#     image_label = tk.Label(root, image=photo)
+#     image_label.image = photo
+#     image_label.pack()
 
-    selected_state = tk.StringVar(root)
-    selected_state.set(states[0])  
+#     selected_state = tk.StringVar(root)
+#     selected_state.set(states[0])  
 
-    tk.Label(root, text=f"Select initial state :").pack()
+#     tk.Label(root, text=f"Select initial state :").pack()
 
-    tk.OptionMenu(root, selected_state, *states).pack()
+#     tk.OptionMenu(root, selected_state, *states).pack()
 
-    def on_submit():
-        global initial_state
-        initial_state = selected_state.get()
-        root.destroy()
+#     def on_submit():
+#         global initial_state
+#         initial_state = selected_state.get()
+#         root.destroy()
 
-    submit_button = tk.Button(root, text="Submit", command=on_submit,**button_style)
-    submit_button.pack()
+#     submit_button = tk.Button(root, text="Submit", command=on_submit,**button_style)
+#     submit_button.pack()
 
-    root.mainloop()
+#     root.mainloop()
 
-    return initial_state
+#     return initial_state
 
 
 
@@ -211,12 +265,13 @@ class gramPrintListener(gramListener):
     def __init__(self):
         self.transitions = {}
         self.actions = set()
+        self.states = []
+        self.recomp = {}
 
-    def enterDefstates(self, ctx):
-        self.current_state = str(ctx.ID(0))
-        self.states = [str(x) for x in ctx.ID()]
-        
-
+    def enterDefstate(self, ctx):
+        self.states.append(str(ctx.ID()))
+        self.recomp[str(ctx.ID())]=int(str(ctx.INT()))
+        self.current_state = self.states[0]
 
 
     def enterDefactions(self, ctx):
@@ -284,7 +339,9 @@ def main():
             printer.transitions[state] = {}
 
     dict = normalize_transitions(printer.transitions)
-    print(simulate_markov_chain(printer.transitions,printer.current_state,['S2'],10,10000))
+    # print(simulate_markov_chain(printer.transitions,printer.current_state,['S2'],10,10000))
+    # print(simulate_expected_reward(printer.transitions,printer.recomp,printer.current_state,10,1000))
+    # print(sprt_markov_chain(printer.transitions,printer.current_state,['S1'],10,theta=0.5,epsilon=0.1,alpha=0.05,beta=0.05))
     # initial_state = select_initial_state(dict,printer.states)
     gwalker = GraphWalker([printer.current_state], dict)
 
@@ -292,5 +349,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
     
 
