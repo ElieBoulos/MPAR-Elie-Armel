@@ -235,6 +235,58 @@ def model_checking_mdp(transitions, terminal_states, states, actions):
         raise ValueError("Failed to solve MDP: " + res.message)
 
 #########################################################################################################################################################
+class QLearning:
+    def __init__(self, states, actions, transitions, rewards, alpha=0.1, gamma=0.99, epsilon=0.1):
+        self.states = states
+        self.actions = list(actions)+['None']
+        self.transitions = transitions
+        self.rewards = rewards
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        
+        self.Q = {}
+        for state, action_dict in transitions.items():
+            for action in action_dict.keys(): 
+                    self.Q[(state, action)] = 0.0
+
+    def choose_action(self, state):
+        valid_actions = [action for action in self.actions if (state, action) in self.Q]
+        if not valid_actions or np.random.rand() < self.epsilon:
+            return random.choice(valid_actions) if valid_actions else None
+        else:
+            q_values = [self.Q[(state, action)] for action in valid_actions]
+            return valid_actions[np.argmax(q_values)]
+
+    def update(self, state, action, next_state, reward):
+        if (state, action) not in self.Q:  
+            return
+
+        
+        next_state_actions = self.transitions.get(next_state, {}).keys()
+        
+        future_rewards = 0
+        if next_state_actions:  
+            future_rewards = max(self.Q.get((next_state, a), 0) for a in next_state_actions)
+
+        td_target = reward + self.gamma * future_rewards
+        td_delta = td_target - self.Q[(state, action)]
+        self.Q[(state, action)] += self.alpha * td_delta
+
+
+    def get_next_state_and_reward(self, state, action):
+       
+        transitions = self.transitions[state].get(action, [])
+        if(transitions != []):
+            next_state = random.choices([t[0] for t in transitions], weights=[t[1] for t in transitions])[0]
+            reward = self.rewards[next_state]
+            
+            return next_state, reward
+        else:
+
+            return None, None
+
+#########################################################################################################################################################
 
 def visualize_markov_chain_with_pygraphviz(transitions, path):
     G = pgv.AGraph(strict=False, directed=True) 
@@ -436,15 +488,51 @@ def main():
             printer.transitions[state] = {}
 
     dict = normalize_transitions(printer.transitions)
-    ######## for MC ###############
+
+
+    #####################################for MC  u can use ex2.mdp #########################
+    
     #print(simulate_markov_chain(printer.transitions,printer.current_state,['S2','S3'],printer.actions,10,10000))
+    
     #print(simulate_expected_reward(printer.transitions,printer.recomp,printer.current_state,printer.actions,10,1000))
+    
     #print(sprt_markov_chain(printer.transitions,printer.current_state,['S1'],printer.actions,10,theta=0.5,epsilon=0.1,alpha=0.05,beta=0.05))
+    
     #print(f"Res : {model_checking_mc(printer.transitions,['S5'],n_steps=-1,states=printer.states,actions=printer.actions)}")
-    ###### for MDP ################
-    #print(model_checking_mdp(printer.transitions, ['S2'], printer.states, printer.actions))
+    
+    ###################################################################################
     
     
+    ################################# for MDP u can use ex3.mdp #################################
+    # print(model_checking_mdp(printer.transitions, ['S5'], printer.states, printer.actions))
+    #######################################################################################
+
+
+    ######################################## Q-learning (FOR MDP) u can use Q.mdp #############################################
+
+    # q_learning = QLearning(printer.states, printer.actions, printer.transitions, printer.recomp)
+
+    # num_episodes = 1000
+    # for _ in range(num_episodes):
+    #     current_state = printer.states[0]  
+
+    #     for _ in range(1000): 
+    #         action = q_learning.choose_action(current_state)
+
+    #         next_state, reward = q_learning.get_next_state_and_reward(current_state, action)
+    #         q_learning.update(current_state, action, next_state, reward)
+
+    #         current_state = next_state
+    #         if(current_state == None):
+    #             break
+            
+    # print("Q-values after training:")
+    # for state_action, q_value in q_learning.Q.items():
+    #     print(f"{state_action}: {q_value}")
+
+    #######################################################################################################
+        
+
     gwalker = GraphWalker([printer.current_state], dict)
 
     
