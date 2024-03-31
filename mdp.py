@@ -278,6 +278,10 @@ class QLearning:
        
         transitions = self.transitions[state].get(action, [])
         if(transitions != []):
+            
+            if(len(transitions) == 1 and transitions[0][0] == state):
+                return None, 0
+            
             next_state = random.choices([t[0] for t in transitions], weights=[t[1] for t in transitions])[0]
             reward = self.rewards[next_state]
             
@@ -504,31 +508,31 @@ def main():
     
     
     ################################# for MDP u can use ex3.mdp #################################
-    # print(model_checking_mdp(printer.transitions, ['S5'], printer.states, printer.actions))
-    #######################################################################################
+    print(model_checking_mdp(printer.transitions, ['S5'], printer.states, printer.actions))
+    ######################################################################################
 
 
-    ######################################## Q-learning (FOR MDP) u can use Q.mdp #############################################
+    ####################################### Q-learning (FOR MDP) u can use Q.mdp #############################################
 
-    # q_learning = QLearning(printer.states, printer.actions, printer.transitions, printer.recomp)
+    q_learning = QLearning(printer.states, printer.actions, printer.transitions, printer.recomp)
 
-    # num_episodes = 1000
-    # for _ in range(num_episodes):
-    #     current_state = printer.states[0]  
+    num_episodes = 1000
+    for _ in range(num_episodes):
+        current_state = printer.states[0]  
 
-    #     for _ in range(1000): 
-    #         action = q_learning.choose_action(current_state)
+        for _ in range(1000): 
+            action = q_learning.choose_action(current_state)
 
-    #         next_state, reward = q_learning.get_next_state_and_reward(current_state, action)
-    #         q_learning.update(current_state, action, next_state, reward)
+            next_state, reward = q_learning.get_next_state_and_reward(current_state, action)
+            q_learning.update(current_state, action, next_state, reward)
 
-    #         current_state = next_state
-    #         if(current_state == None):
-    #             break
+            current_state = next_state
+            if(current_state == None):
+                break
             
-    # print("Q-values after training:")
-    # for state_action, q_value in q_learning.Q.items():
-    #     print(f"{state_action}: {q_value}")
+    print("Q-values after training:")
+    for state_action, q_value in q_learning.Q.items():
+        print(f"{state_action}: {q_value}")
 
     #######################################################################################################
         

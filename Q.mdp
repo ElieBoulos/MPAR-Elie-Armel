@@ -1,4 +1,4 @@
-States II:0, CI:0, AI:0, CC:1, CA:0, AC:0, AA:0; 
+States II:0, CI:0, AI:0, CC:0, CA:0, AC:0, AA:0, Win:1, Lose:0;
 Actions a, p, c;
 II[c] -> 1:CI;
 II[p] -> 2:CI + 1:AI;
@@ -12,5 +12,10 @@ AI[c] -> 1:AC;
 AI[p] -> 2:AC + 1:AA;
 AI[a] -> 1:AA;
 
+CC -> 1:Win + 1:Lose;
+CA -> 1:Win;
+AC -> 1:Win;
+AA -> 1:Lose;
 
-
+Win -> 1:Win;
+Lose -> 1:Lose;
