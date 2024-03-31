@@ -30,7 +30,7 @@ def normalize_transitions(transitions):
 
 def simulate_markov_chain(transitions, initial_state, target_states, actions,steps, simulations=10000):
     if(actions != {'None'}):
-        print("Only MP are allowed !")
+        print("Only MCs are allowed! (Some actions are defined in the file.)")
         return
     successful_simulations = 0
     
@@ -53,7 +53,7 @@ def simulate_markov_chain(transitions, initial_state, target_states, actions,ste
 
 def simulate_expected_reward(transitions, recomp, initial_state, actions,steps, simulations=10000):
     if(actions != {'None'}):
-        print("Only MP are allowed !")
+        print("Only MCs are allowed! (Some actions are defined in the file.)")
         return
     total_reward = 0
     
@@ -82,7 +82,7 @@ def simulate_expected_reward(transitions, recomp, initial_state, actions,steps, 
 def sprt_markov_chain(transitions, initial_state, target_states,actions, steps,theta, epsilon, alpha=0.05, beta=0.05):
     # H0: p >= gamma_0 ,  H1: p < gamma_1
     if(actions != {'None'}):
-        print("Only MP are allowed !")
+        print("Only MCs are allowed! (Some actions are defined in the file.)")
         return
     
     A = ((1 - beta) / alpha)
@@ -148,7 +148,7 @@ def model_checking_mc(transitions, terminal_states, n_steps, states,actions):
         return
     
     if(actions != {'None'}):
-        print("Only MP are allowed !")
+        print("Only MCs are allowed! (Some actions are defined in the file.)")
         return
         
     A, b, effective_states = build_transition_matrix_and_vector(transitions, terminal_states, states)
@@ -496,7 +496,7 @@ def main():
 
     #####################################for MC  u can use ex2.mdp #########################
     
-    #print(simulate_markov_chain(printer.transitions,printer.current_state,['S2','S3'],printer.actions,10,10000))
+    #print(simulate_markov_chain(printer.transitions,printer.current_state,['F'],printer.actions,10,10000))
     
     #print(simulate_expected_reward(printer.transitions,printer.recomp,printer.current_state,printer.actions,10,1000))
     
@@ -508,31 +508,31 @@ def main():
     
     
     ################################# for MDP u can use ex3.mdp #################################
-    print(model_checking_mdp(printer.transitions, ['S5'], printer.states, printer.actions))
+    #print(model_checking_mdp(printer.transitions, ['S5'], printer.states, printer.actions))
     ######################################################################################
 
 
     ####################################### Q-learning (FOR MDP) u can use Q.mdp #############################################
 
-    q_learning = QLearning(printer.states, printer.actions, printer.transitions, printer.recomp)
+    # q_learning = QLearning(printer.states, printer.actions, printer.transitions, printer.recomp)
 
-    num_episodes = 1000
-    for _ in range(num_episodes):
-        current_state = printer.states[0]  
+    # num_episodes = 1000
+    # for _ in range(num_episodes):
+    #     current_state = printer.states[0]  
 
-        for _ in range(1000): 
-            action = q_learning.choose_action(current_state)
+    #     for _ in range(1000): 
+    #         action = q_learning.choose_action(current_state)
 
-            next_state, reward = q_learning.get_next_state_and_reward(current_state, action)
-            q_learning.update(current_state, action, next_state, reward)
+    #         next_state, reward = q_learning.get_next_state_and_reward(current_state, action)
+    #         q_learning.update(current_state, action, next_state, reward)
 
-            current_state = next_state
-            if(current_state == None):
-                break
+    #         current_state = next_state
+    #         if(current_state == None):
+    #             break
             
-    print("Q-values after training:")
-    for state_action, q_value in q_learning.Q.items():
-        print(f"{state_action}: {q_value}")
+    # print("Q-values after training:")
+    # for state_action, q_value in q_learning.Q.items():
+    #     print(f"{state_action}: {q_value}")
 
     #######################################################################################################
         
