@@ -14,6 +14,8 @@ from tkinter import messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image as img
 from PIL import ImageTk as imgtk 
+from scipy.optimize import linprog
+import numpy as np
 
 
 def normalize_transitions(transitions):
@@ -24,8 +26,12 @@ def normalize_transitions(transitions):
             transitions[state][action] = normalized_transitions
     return transitions
 
-def simulate_markov_chain(transitions, initial_state, target_states, steps, simulations=10000):
+#####################################################################################################################################################
 
+def simulate_markov_chain(transitions, initial_state, target_states, actions,steps, simulations=10000):
+    if(actions != {'None'}):
+        print("Only MP are allowed !")
+        return
     successful_simulations = 0
     
     for _ in range(simulations):
@@ -37,7 +43,6 @@ def simulate_markov_chain(transitions, initial_state, target_states, steps, simu
             if current_state not in transitions or not transitions[current_state]:
                 break 
             actions = transitions[current_state].get(None, [])
-            
             if not actions:  
                 break
             next_states, probabilities = zip(*actions)
@@ -46,7 +51,10 @@ def simulate_markov_chain(transitions, initial_state, target_states, steps, simu
     return successful_simulations / simulations
 
 
-def simulate_expected_reward(transitions, recomp, initial_state, steps, simulations=10000):
+def simulate_expected_reward(transitions, recomp, initial_state, actions,steps, simulations=10000):
+    if(actions != {'None'}):
+        print("Only MP are allowed !")
+        return
     total_reward = 0
     
     for _ in range(simulations):
@@ -71,8 +79,12 @@ def simulate_expected_reward(transitions, recomp, initial_state, steps, simulati
     expected_reward = total_reward / simulations  
     return expected_reward
 
-def sprt_markov_chain(transitions, initial_state, target_states, steps,theta, epsilon, alpha=0.05, beta=0.05):
+def sprt_markov_chain(transitions, initial_state, target_states,actions, steps,theta, epsilon, alpha=0.05, beta=0.05):
     # H0: p >= gamma_0 ,  H1: p < gamma_1
+    if(actions != {'None'}):
+        print("Only MP are allowed !")
+        return
+    
     A = ((1 - beta) / alpha)
     B = (beta / (1 - alpha))
     gamma_1 = theta - epsilon
@@ -84,7 +96,7 @@ def sprt_markov_chain(transitions, initial_state, target_states, steps,theta, ep
     while True:
         m += 1
 
-        reached = simulate_markov_chain(transitions, initial_state, target_states, steps,simulations=1)
+        reached = simulate_markov_chain(transitions, initial_state, target_states, actions, steps,simulations=1)
         
         if reached :
             dm += 1
@@ -93,11 +105,136 @@ def sprt_markov_chain(transitions, initial_state, target_states, steps,theta, ep
             Rm *= ((1-gamma_1)**(m-dm))/((1-gamma_0)**(m-dm))
 
         if Rm >= A:
-            return "Accept H1", m
+            return "Accept H1 : p < gamma_1", m
         elif Rm <= B:
-            return "Accept H0", m
+            return "Accept H0 : p >= gamma_0", m
         
+
+######################################################################################################################################################
+def build_transition_matrix_and_vector(transitions, terminal_states, states):
+
+    effective_states = [state for state in states if state not in terminal_states and transitions.get(state, {})]
+    state_index = {state: idx for idx, state in enumerate(effective_states)}
+    n_states = len(effective_states)
+    
+    A = np.zeros((n_states, n_states))
+    b = np.zeros(n_states)
+
+    for state, actions in transitions.items():
+        if state in terminal_states: continue
+        i = state_index.get(state, None)
+        if i is None: continue  
         
+        for action, dests in actions.items():
+            total_weight = sum(weight for _, weight in dests)
+            for dest, weight in dests:
+                if dest in terminal_states:
+               
+                    b[i] += weight / total_weight
+                else:
+                    if(dest in effective_states):
+                        j = state_index.get(dest)
+                        if j is not None:
+                            
+                            A[i, j] += weight / total_weight
+    
+    return A, b, effective_states
+
+#Si n_steps = -1, on calcule la probabilité d'arriver pour n'importe quel nombre de transitions (résoudre x = Ax + b)
+def model_checking_mc(transitions, terminal_states, n_steps, states,actions):
+    
+    if any(terminal_state not in states for terminal_state in terminal_states):
+        print("Terminal state(s) not found")
+        return
+    
+    if(actions != {'None'}):
+        print("Only MP are allowed !")
+        return
+        
+    A, b, effective_states = build_transition_matrix_and_vector(transitions, terminal_states, states)
+    print(f"States S? : {effective_states}")
+    print(f"A: {A}")
+    print(f"b: {b}")
+
+    
+    if n_steps == -1:
+        I = np.eye(len(effective_states))
+        y = np.linalg.solve(I - A, b)
+    else:
+        y = np.zeros(len(effective_states))
+        for _ in range(n_steps):
+            y = A.dot(y) + b
+
+
+    state_to_y_mapping = {state: y[idx] for idx, state in enumerate(effective_states)}
+    
+
+    return state_to_y_mapping
+########################################################################################################################################################
+def build_matrices_mdp(transitions, terminal_states, states, actions):
+    effective_states = [state for state in states if state not in terminal_states and transitions.get(state, {})]
+    state_idx = {state: i for i, state in enumerate(effective_states)}
+    n_states = len(effective_states)
+    
+    action_rows_per_state = {state: len(transitions.get(state, {})) for state in effective_states}
+    total_action_rows = sum(action_rows_per_state.values())
+    n_rows = total_action_rows + 2 * n_states
+    A = np.zeros((n_rows, n_states))
+    I = np.zeros((n_rows, n_states))
+    b = np.zeros(n_rows)
+    
+    num_lines = 0
+    
+    for i in range(n_states):
+        for j in range(num_lines,num_lines+list(action_rows_per_state.values())[i]+2):
+            I[j, i] = 1
+        num_lines += list(action_rows_per_state.values())[i]+2
+
+    row = 0
+    for state in effective_states:
+        for action, dests in transitions.get(state, {}).items():
+            
+            for dest, prob in dests:
+                
+                    if dest not in terminal_states:
+                        if(dest in effective_states):
+                            A[row, state_idx[dest]] += prob
+                    else:
+                        b[row] += prob
+            row += 1
+        row +=1
+    
+        A[row, state_idx[state]] = 2
+        b[row] = -1
+        row += 1 
+    
+    return A,I,b,effective_states
+
+def model_checking_mdp(transitions, terminal_states, states, actions):
+    if any(terminal_state not in states for terminal_state in terminal_states):
+        print("Terminal state(s) not found")
+        return
+    if(actions == {'None'}):
+        print("Only MDP are allowed !")
+        return
+    A,I,b,states = build_matrices_mdp(transitions, terminal_states, states, actions)
+    print(f"States S? : {states}")
+    print(f"A: {A}")
+    print(f"b: {b}")
+    
+    dict = {}
+    
+    c = np.ones(A.shape[1])
+    res = linprog(c, A_ub=-(I-A), b_ub=-b)
+    for i in range(len(states)):
+        dict[states[i]]=res.x[i]
+    if res.success:
+        return dict
+        
+    else:
+        raise ValueError("Failed to solve MDP: " + res.message)
+
+#########################################################################################################################################################
 
 def visualize_markov_chain_with_pygraphviz(transitions, path):
     G = pgv.AGraph(strict=False, directed=True) 
@@ -123,49 +260,6 @@ def visualize_markov_chain_with_pygraphviz(transitions, path):
     G.draw(output_path, prog='dot', format='png')
 
     return Image(output_path)
-
-
-# def select_initial_state(transitions,states):
-#     button_style = {
-#             'background': 'lightblue',
-#             'foreground': 'black',
-#             'font': ('Helvetica', 15),
-#             'borderwidth': 5,
-#             'relief': 'raised',
-#             'padx': 10,
-#             'pady': 5
-#         }
-#     root = tk.Tk()
-#     root.title("Select Initial State")
-    
-    
-#     visualize_markov_chain_with_pygraphviz(transitions, [])
-#     image = img.open('markov_chain_visualization.png')
-#     photo = imgtk.PhotoImage(image)
-#     image_label = tk.Label(root, image=photo)
-#     image_label.image = photo
-#     image_label.pack()
-
-#     selected_state = tk.StringVar(root)
-#     selected_state.set(states[0])  
-
-#     tk.Label(root, text=f"Select initial state :").pack()
-
-#     tk.OptionMenu(root, selected_state, *states).pack()
-
-#     def on_submit():
-#         global initial_state
-#         initial_state = selected_state.get()
-#         root.destroy()
-
-#     submit_button = tk.Button(root, text="Submit", command=on_submit,**button_style)
-#     submit_button.pack()
-
-#     root.mainloop()
-
-#     return initial_state
-
-
 
 
 
@@ -270,7 +364,10 @@ class gramPrintListener(gramListener):
 
     def enterDefstate(self, ctx):
         self.states.append(str(ctx.ID()))
-        self.recomp[str(ctx.ID())]=int(str(ctx.INT()))
+        if(str(ctx.INT())!='None'):
+            self.recomp[str(ctx.ID())]=int(str(ctx.INT()))
+        else:
+            self.recomp[str(ctx.ID())]=0
         self.current_state = self.states[0]
 
 
@@ -339,10 +436,15 @@ def main():
             printer.transitions[state] = {}
 
     dict = normalize_transitions(printer.transitions)
-    # print(simulate_markov_chain(printer.transitions,printer.current_state,['S2'],10,10000))
-    # print(simulate_expected_reward(printer.transitions,printer.recomp,printer.current_state,10,1000))
-    # print(sprt_markov_chain(printer.transitions,printer.current_state,['S1'],10,theta=0.5,epsilon=0.1,alpha=0.05,beta=0.05))
-    # initial_state = select_initial_state(dict,printer.states)
+    ######## for MC ###############
+    #print(simulate_markov_chain(printer.transitions,printer.current_state,['S2','S3'],printer.actions,10,10000))
+    #print(simulate_expected_reward(printer.transitions,printer.recomp,printer.current_state,printer.actions,10,1000))
+    #print(sprt_markov_chain(printer.transitions,printer.current_state,['S1'],printer.actions,10,theta=0.5,epsilon=0.1,alpha=0.05,beta=0.05))
+    #print(f"Res : {model_checking_mc(printer.transitions,['S5'],n_steps=-1,states=printer.states,actions=printer.actions)}")
+    ###### for MDP ################
+    #print(model_checking_mdp(printer.transitions, ['S2'], printer.states, printer.actions))
+    
+    
     gwalker = GraphWalker([printer.current_state], dict)
 
     

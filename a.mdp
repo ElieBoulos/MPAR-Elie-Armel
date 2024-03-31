@@ -1,0 +1,21 @@
+States II:1, CI:1, AI:1, CC:1, CA:1, AC:1, AA:1, Win:1, Lose:1;
+Actions a, p, c;
+II[c] -> 1:CI;
+II[p] -> 2:CI + 1:AI;
+II[a] -> 1:AI;
+
+CI[c] -> 1:CC;
+CI[p] -> 2:CC + 1:CA;
+CI[a] -> 1:CA;
+
+AI[c] -> 1:AC;
+AI[p] -> 2:AC + 1:AA;
+AI[a] -> 1:AA;
+
+CC -> 1:Win + 1:Lose;
+CA -> 1:Win;
+AC -> 1:Win;
+AA -> 1:Lose;
+
+Win -> 1:Win;
+Lose -> 1:Lose;
